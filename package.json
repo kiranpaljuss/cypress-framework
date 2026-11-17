@@ -18,6 +18,7 @@
     "test:smoke": "TAGS=@smoke yarn test",
     "test:ui": "TAGS=\"@ui and not @ignore\" yarn test",
     "test:api": "TAGS=\"@api and not @ignore\" yarn test",
+    "test:a11y": "TAGS=\"@a11y and not @ignore\" yarn test",
     "test:parallel": "yarn reports:clean && tsx scripts/runFeaturesInParallel.ts; code=$?; yarn report; exit $code",
     "reports:clean": "rm -rf report cypress/screenshots && mkdir -p report/HTML report/JSON",
     "report": "tsx scripts/exportHTMLReport.ts",
@@ -31,6 +32,7 @@
     "@bahmutov/cypress-esbuild-preprocessor": "2.2.8",
     "@eslint/js": "10.0.1",
     "@stylistic/eslint-plugin": "6.0.1",
+    "axe-core": "4.14.1",
     "chalk": "6.0.1",
     "cucumber-html-reporter": "^7.2.0",
     "cypress": "16.3.0",
@@ -45,7 +47,8 @@
     "lint-staged": "17.0.7",
     "tsx": "4.23.15",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.72.2"
+    "typescript-eslint": "8.72.2",
+    "zod": "4.6.7"
   },
   "resolutions": {
     "gherkin-lint/lodash": "4.18.1",
