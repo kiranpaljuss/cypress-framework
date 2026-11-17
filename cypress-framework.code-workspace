@@ -48,14 +48,14 @@
     "editor.guides.indentation": false,
     "cucumberautocomplete.smartSnippets": true,
     "cucumberautocomplete.steps": [
-      "**/cypress/integration/steps/**/*.ts"
+      "**/cypress/e2e/step_definitions/**/*.ts"
     ],
-    "cucumberautocomplete.syncfeatures": "**/cypress/integration/features/**/*.feature",
+    "cucumberautocomplete.syncfeatures": "**/cypress/e2e/features/**/*.feature",
     "cucumber.features": [
-      "**/cypress/integration/features/**/*.feature"
+      "**/cypress/e2e/features/**/*.feature"
     ],
     "cucumber.glue": [
-      "**/cypress/integration/steps/**/*.ts"
+      "**/cypress/e2e/step_definitions/**/*.ts"
     ],
     "cucumberautocomplete.strictGherkinCompletion": false,
     "cucumberautocomplete.strictGherkinValidation": false,
