@@ -4,6 +4,7 @@
 ![Cypress](https://img.shields.io/badge/Cypress-16-17202C?logo=cypress)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Cucumber](https://img.shields.io/badge/Cucumber-BDD-23D96C?logo=cucumber&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeScript**. It covers both **UI** and **REST API** testing against two public demo applications:
 
@@ -127,3 +128,7 @@ yarn typecheck   # TypeScript, strict mode
 ```
 
 A pre-commit hook runs these checks against staged files.
+
+## License
+
+[MIT](LICENSE) © Kiranpal Juss
