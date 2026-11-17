@@ -75,6 +75,41 @@ jobs:
           path: cypress/screenshots/
           if-no-files-found: ignore
 
+  cross-browser:
+    name: UI tests (${{ matrix.browser }})
+    needs: static-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, edge]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+
+      # The full suite runs in Chrome above; the UI scenarios also run in Firefox and Edge
+      # to catch browser-specific issues. API scenarios don't depend on the browser.
+      - name: Run UI scenarios
+        uses: cypress-io/github-action@v7
+        with:
+          command: yarn test
+        env:
+          BROWSER: ${{ matrix.browser }}
+          TAGS: '@ui and not @ignore'
+
+      - name: Upload HTML report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: cucumber-report-${{ matrix.browser }}
+          path: report/
+          if-no-files-found: warn
+
   publish-report:
     name: Publish report to GitHub Pages
     needs: e2e
