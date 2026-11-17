@@ -99,7 +99,7 @@ jobs:
           cp report/HTML/cucumber_report.html _site/index.html
 
       # Name the artifact per attempt so "Re-run jobs" doesn't find duplicates.
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
           name: github-pages-${{ github.run_attempt }}
