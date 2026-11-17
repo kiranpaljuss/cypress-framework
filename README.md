@@ -26,6 +26,7 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 - **Parallel execution:** a custom TypeScript runner distributes feature files across a configurable pool of Cypress workers and merges the results into a single report.
 - **Rich reporting:** an HTML Cucumber report with failure screenshots embedded against the failing step.
 - **Quality gates:** strict TypeScript, ESLint (typescript-eslint, Cypress and JSON rules), gherkin-lint, and a Husky pre-commit hook running lint-staged.
+- **Migrated from JavaScript to strict TypeScript:** the framework was originally built in JavaScript, then [converted](https://github.com/kiranpaljuss/cypress-framework/commit/6772bc7) to strict mode with typed custom commands and API models.
 - **CI/CD:** GitHub Actions runs static checks, then the suite. It uploads artifacts, publishes the report to GitHub Pages, and runs weekly to catch drift in the applications under test. Dependabot keeps dependencies current.
 
 ## Tech stack
