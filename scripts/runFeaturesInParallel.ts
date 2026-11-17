@@ -107,8 +107,9 @@ function buildJsonOutputPath (featurePath: string) {
 }
 
 function runFeature (featurePath: string, jsonOutput: string): Promise<number | null> {
-  const envParts = [
-    `TAGS=${tags}`,
+  // Preprocessor options are passed with --expose (cypress-cucumber-preprocessor v27+).
+  const exposeParts = [
+    `tags=${tags}`,
     'jsonEnabled=true',
     `jsonOutput=${jsonOutput}`,
   ];
@@ -120,8 +121,8 @@ function runFeature (featurePath: string, jsonOutput: string): Promise<number | 
     browser,
     '--spec',
     featurePath,
-    '--env',
-    envParts.join(','),
+    '--expose',
+    exposeParts.join(','),
   ];
 
   return new Promise((resolve) => {

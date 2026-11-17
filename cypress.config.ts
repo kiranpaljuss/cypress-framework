@@ -22,7 +22,6 @@ export default defineConfig({
   e2e: {
     baseUrl: 'https://www.saucedemo.com',
     specPattern: 'cypress/e2e/features/**/*.feature',
-    experimentalMemoryManagement: true,
     async setupNodeEvents (on, config) {
       await addCucumberPreprocessorPlugin(on, config);
       on('file:preprocessor', createBundler({ plugins: [createEsbuildPlugin(config)] }));
