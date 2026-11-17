@@ -1,7 +1,7 @@
 # Cypress Framework
 
 [![CI](https://github.com/kiranpaljuss/cypress-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/kiranpaljuss/cypress-framework/actions/workflows/ci.yml)
-![Cypress](https://img.shields.io/badge/Cypress-15-17202C?logo=cypress)
+![Cypress](https://img.shields.io/badge/Cypress-16-17202C?logo=cypress)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Cucumber](https://img.shields.io/badge/Cucumber-BDD-23D96C?logo=cucumber&logoColor=white)
 
@@ -31,11 +31,11 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 
 | Area | Tools |
 | --- | --- |
-| Test runner | Cypress 15 |
+| Test runner | Cypress 16 |
 | BDD | `@badeball/cypress-cucumber-preprocessor`, esbuild |
 | Language | TypeScript (strict) on Node.js 24 |
 | Reporting | `cucumber-html-reporter` |
-| Code quality | ESLint 9 (flat config), typescript-eslint, `@stylistic`, gherkin-lint, Husky, lint-staged |
+| Code quality | ESLint 10 (flat config), typescript-eslint, `@stylistic`, gherkin-lint, Husky, lint-staged |
 | CI | GitHub Actions, GitHub Pages, Dependabot |
 
 ## Project structure
