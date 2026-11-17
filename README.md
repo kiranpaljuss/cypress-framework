@@ -31,7 +31,7 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 - **Rich reporting:** an HTML Cucumber report with failure screenshots embedded against the failing step.
 - **Quality gates:** strict TypeScript, ESLint (typescript-eslint, Cypress and JSON rules), gherkin-lint, and a Husky pre-commit hook running lint-staged.
 - **Migrated from JavaScript to strict TypeScript:** the framework was originally built in JavaScript, then [converted](https://github.com/kiranpaljuss/cypress-framework/commit/6772bc7) to strict mode with typed custom commands and API models.
-- **CI/CD:** GitHub Actions runs static checks, then the suite. It uploads artifacts, publishes the report to GitHub Pages, and runs weekly to catch drift in the applications under test. Dependabot keeps dependencies current.
+- **CI/CD:** GitHub Actions runs static checks, then the full suite in Chrome and the UI scenarios in Firefox and Edge. It uploads artifacts, publishes the report to GitHub Pages, and runs weekly to catch drift in the applications under test. Dependabot keeps dependencies current.
 
 ## Tech stack
 
@@ -51,7 +51,7 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 ```text
 .
 ├── .github/
-│   ├── workflows/ci.yml            # Lint → test → publish report
+│   ├── workflows/ci.yml            # Lint → test (Chrome, Firefox, Edge) → publish report
 │   └── dependabot.yml
 ├── cypress/
 │   ├── api/
@@ -91,7 +91,7 @@ cp .env.template .env   # optional: override any defaults locally
 | Command | Description |
 | --- | --- |
 | `yarn cy:open` | Open the interactive Cypress runner |
-| `yarn test` | Run the full suite headlessly in Chrome and generate the HTML report |
+| `yarn test` | Run the full suite headlessly in Chrome (or `BROWSER=firefox` / `edge`) and generate the HTML report |
 | `yarn test:parallel` | Run feature files in parallel (`FEATURE_PARALLEL_WORKERS`, default `3`) |
 | `yarn test:smoke` | Run only `@smoke` scenarios |
 | `yarn test:ui` / `yarn test:api` | Run only UI or API scenarios |

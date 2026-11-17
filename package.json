@@ -14,7 +14,7 @@
   },
   "scripts": {
     "cy:open": "cypress open --e2e --browser chrome --expose tags=\"${TAGS:-not @ignore}\"",
-    "test": "yarn reports:clean && cypress run --browser chrome --expose tags=\"${TAGS:-not @ignore}\"; code=$?; yarn report; exit $code",
+    "test": "yarn reports:clean && cypress run --browser ${BROWSER:-chrome} --expose tags=\"${TAGS:-not @ignore}\"; code=$?; yarn report; exit $code",
     "test:smoke": "TAGS=@smoke yarn test",
     "test:ui": "TAGS=\"@ui and not @ignore\" yarn test",
     "test:api": "TAGS=\"@api and not @ignore\" yarn test",
