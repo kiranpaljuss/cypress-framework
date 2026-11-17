@@ -26,13 +26,13 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@badeball/cypress-cucumber-preprocessor": "24.0.1",
+    "@badeball/cypress-cucumber-preprocessor": "28.0.1",
     "@bahmutov/cypress-esbuild-preprocessor": "2.2.8",
     "@eslint/js": "9.38.0",
     "@stylistic/eslint-plugin": "6.0.1",
     "chalk": "5.6.2",
     "cucumber-html-reporter": "^7.2.0",
-    "cypress": "15.17.0",
+    "cypress": "16.3.0",
     "eslint": "9.38.0",
     "eslint-plugin-cypress": "6.4.1",
     "eslint-plugin-jsonc": "3.2.0",
