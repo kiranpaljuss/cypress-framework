@@ -1,7 +1,16 @@
-cypress/videos
-node_modules
-report
-cypress/screenshots
-cypress/downloads
-yarn.lock
+# Dependencies
+node_modules/
+
+# Cypress artefacts
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+
+# Reports
+report/
+
+# Local environment overrides
 .env
+
+# OS / editor
+.DS_Store
