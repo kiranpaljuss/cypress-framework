@@ -15,9 +15,53 @@ const createdAccounts = new Map<string, string>();
 
 const apiUrl = (endpoint: string) => `${Cypress.expose('apiBaseUrl')}${endpoint}`;
 
-/** automationexercise.com returns JSON with a `text/html` content type, so the body may arrive as a string. */
-const parseBody = (body: unknown): ApiResponseBody =>
-  (typeof body === 'string' ? JSON.parse(body) : body) as ApiResponseBody;
+/** How often to retry when the API returns a web page instead of JSON, and the base delay between tries. */
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 2000;
+
+/**
+ * automationexercise.com returns JSON with a `text/html` content type, so the body may arrive
+ * as a string. Returns null when the body isn't JSON at all: the site sometimes answers
+ * automated traffic (e.g. from CI servers) with an HTML error or bot-protection page.
+ */
+const parseBody = (body: unknown): ApiResponseBody | null => {
+  if (typeof body !== 'string') {
+    return body as ApiResponseBody;
+  }
+  try {
+    return JSON.parse(body) as ApiResponseBody;
+  } catch {
+    return null;
+  }
+};
+
+const pageTitle = (html: unknown): string =>
+  String(html).match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() || 'untitled page';
+
+/**
+ * Sends a request, retrying with a growing delay if the API returns a web page instead of
+ * JSON. If it still does after MAX_ATTEMPTS, fails with a message that makes clear the
+ * third-party API was unavailable, rather than a confusing JSON parse error.
+ */
+function requestJson (options: Partial<Cypress.RequestOptions>, attempt = 1): Cypress.Chainable<ApiResponse> {
+  return cy.request(options).then((res) => {
+    const body = parseBody(res.body);
+    if (body) {
+      return cy.wrap<ApiResponse>({ status: res.status, body }, { log: false });
+    }
+
+    const summary = `${options.method} ${options.url} returned an HTML page ("${pageTitle(res.body)}", HTTP ${res.status}) instead of JSON`;
+    if (attempt >= MAX_ATTEMPTS) {
+      throw new Error(`Automation Exercise API unavailable: ${summary} on ${MAX_ATTEMPTS} attempts. `
+        + 'This is an outage or bot protection on the third-party API, not a failure of the behaviour under test.');
+    }
+
+    cy.log(`${summary}; retrying (attempt ${attempt + 1} of ${MAX_ATTEMPTS})`);
+    // A deliberate back-off before retrying a third-party API, not a wait for the app under test.
+    cy.wait(RETRY_DELAY_MS * attempt, { log: false });
+    return requestJson(options, attempt + 1);
+  });
+}
 
 const getAccountPayload = () => cy.get<AccountPayload>('@accountPayload');
 const getApiResponse = () => cy.get<ApiResponse>('@apiResponse');
@@ -43,18 +87,17 @@ function trackAccountLifecycle (endpoint: string, payload: AccountPayload | unde
 function sendApiRequest (method: HttpMethod, endpoint: string, payload?: AccountPayload) {
   const isGet = method === 'GET';
 
-  return cy.request({
+  return requestJson({
     method,
     url: apiUrl(endpoint),
     form: !isGet,
     body: isGet ? undefined : payload,
     qs: isGet ? payload : undefined,
     failOnStatusCode: false,
-  }).then((res) => {
-    const body = parseBody(res.body);
-    trackAccountLifecycle(endpoint, payload, body);
+  }).then((response) => {
+    trackAccountLifecycle(endpoint, payload, response.body);
 
-    cy.wrap<ApiResponse>({ status: res.status, body }).as('apiResponse', { type: 'static' });
+    cy.wrap<ApiResponse>(response).as('apiResponse', { type: 'static' });
   });
 }
 
