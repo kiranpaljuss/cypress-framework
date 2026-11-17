@@ -1,22 +1,9 @@
 import { After, Given, Then, When } from '@badeball/cypress-cucumber-preprocessor';
+import { z } from 'zod';
+import { apiSchemas, type ApiResponseBody, type ApiSchemaName, type ApiUser } from '../../api/schemas';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 type AccountPayload = Record<string, string>;
-
-interface ApiUser {
-  name: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  city: string;
-  [key: string]: unknown;
-}
-
-interface ApiResponseBody {
-  responseCode: number;
-  message?: string;
-  user?: ApiUser;
-}
 
 interface ApiResponse {
   status: number;
@@ -132,6 +119,15 @@ Then(/^the API response code should be "(\d+)"$/, (apiCode: string) => {
 
 Then(/^the API response message should be "(.*)"$/, (message: string) => {
   getApiResponse().its('body.message').should('eq', message);
+});
+
+Then(/^the response body should match the "(message|user details)" schema$/, (schemaName: ApiSchemaName) => {
+  getApiResponse().then(({ body }) => {
+    const result = apiSchemas[schemaName].safeParse(body);
+    const problems = result.success ? '' : `:\n${z.prettifyError(result.error)}`;
+
+    expect(result.success, `response body matches the "${schemaName}" schema${problems}`).to.be.true;
+  });
 });
 
 Then('the returned user details should match the prepared account', () => {
