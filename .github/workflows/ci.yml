@@ -59,11 +59,12 @@ jobs:
         with:
           command: yarn test
 
+      # Named per attempt so a re-run publishes its own report, not the first attempt's.
       - name: Upload HTML report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: cucumber-report
+          name: cucumber-report-${{ github.run_attempt }}
           path: report/
           if-no-files-found: warn
 
@@ -125,7 +126,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: cucumber-report
+          name: cucumber-report-${{ github.run_attempt }}
           path: report
 
       - name: Prepare site
@@ -133,7 +134,7 @@ jobs:
           mkdir -p _site
           cp report/HTML/cucumber_report.html _site/index.html
 
-      # Name the artifact per attempt so "Re-run jobs" doesn't find duplicates.
+      # Also named per attempt: re-runs can't upload a second artifact with the same name.
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
