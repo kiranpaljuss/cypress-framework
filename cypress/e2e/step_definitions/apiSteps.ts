@@ -15,9 +15,29 @@ const createdAccounts = new Map<string, string>();
 
 const apiUrl = (endpoint: string) => `${Cypress.expose('apiBaseUrl')}${endpoint}`;
 
-/** automationexercise.com returns JSON with a `text/html` content type, so the body may arrive as a string. */
-const parseBody = (body: unknown): ApiResponseBody =>
-  (typeof body === 'string' ? JSON.parse(body) : body) as ApiResponseBody;
+/**
+ * automationexercise.com returns JSON with a `text/html` content type, so the body may arrive as a string.
+ * If it isn't JSON at all (e.g. an outage or bot-protection page), fail with a message that says so
+ * rather than a bare JSON syntax error.
+ */
+function parseBody (body: unknown, status: number, endpoint: string): ApiResponseBody {
+  if (typeof body !== 'string') {
+    return body as ApiResponseBody;
+  }
+
+  try {
+    return JSON.parse(body) as ApiResponseBody;
+  } catch {
+    const pageTitle = /<title>([^<]*)<\/title>/i.exec(body)?.[1]?.trim();
+    const titleNote = pageTitle ? ` (page title: "${pageTitle}")` : '';
+
+    throw new Error(
+      `${endpoint} returned HTTP ${status} with a non-JSON body${titleNote}. ` +
+      'The demo API may be down or blocking this client; this is not a test assertion failure.\n' +
+      `Body starts: ${body.replace(/\s+/g, ' ').slice(0, 200)}`,
+    );
+  }
+}
 
 const getAccountPayload = () => cy.get<AccountPayload>('@accountPayload');
 const getApiResponse = () => cy.get<ApiResponse>('@apiResponse');
@@ -51,7 +71,7 @@ function sendApiRequest (method: HttpMethod, endpoint: string, payload?: Account
     qs: isGet ? payload : undefined,
     failOnStatusCode: false,
   }).then((res) => {
-    const body = parseBody(res.body);
+    const body = parseBody(res.body, res.status, endpoint);
     trackAccountLifecycle(endpoint, payload, body);
 
     cy.wrap<ApiResponse>({ status: res.status, body }).as('apiResponse', { type: 'static' });
