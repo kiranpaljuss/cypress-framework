@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Cypress + Cucumber (BDD) + TypeScript test automation framework covering UI and API testing, with parallel execution, HTML reporting and CI.",
   "author": "Kiranpal Juss",
+  "license": "MIT",
   "private": true,
   "repository": {
     "type": "git",
@@ -33,6 +34,7 @@
     "chalk": "6.0.1",
     "cucumber-html-reporter": "^7.2.0",
     "cypress": "16.3.0",
+    "esbuild": "0.28.2",
     "eslint": "10.15.0",
     "eslint-plugin-cypress": "7.0.5",
     "eslint-plugin-jsonc": "3.4.2",
@@ -44,6 +46,17 @@
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.2"
+  },
+  "resolutions": {
+    "gherkin-lint/lodash": "4.18.1",
+    "gherkin-lint/**/protobufjs": "7.6.6",
+    "cucumber-html-reporter/uuid": "11.1.1",
+    "cucumber-html-reporter/**/@cucumber/messages/uuid": "11.1.1",
+    "cucumber-html-reporter/**/semver": "7.8.6",
+    "@badeball/cypress-cucumber-preprocessor/glob": "14.0.6",
+    "@badeball/cypress-cucumber-preprocessor/mocha/glob": "14.0.6",
+    "@badeball/cypress-cucumber-preprocessor/**/glob/minimatch": "11.0.9",
+    "**/@typescript-eslint/typescript-estree/minimatch": "11.0.9"
   },
   "cypress-cucumber-preprocessor": {
     "stepDefinitions": "cypress/e2e/step_definitions/**/*.ts",
