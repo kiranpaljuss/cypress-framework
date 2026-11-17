@@ -1,7 +1,7 @@
 {
   "name": "cypress-framework",
   "version": "1.0.0",
-  "description": "Cypress + Cucumber (BDD) + TypeScript test automation framework covering UI and API testing, with parallel execution, HTML reporting and CI.",
+  "description": "Cypress + Cucumber (BDD) + TypeScript test automation framework covering UI, accessibility and API testing, with parallel execution, HTML reporting and CI.",
   "author": "Kiranpal Juss",
   "license": "MIT",
   "private": true,
