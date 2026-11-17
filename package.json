@@ -67,7 +67,7 @@
       "enabled": true,
       "output": "report/JSON/cucumber_report.json"
     },
-    "filterSpec": true,
+    "filterSpecs": true,
     "omitFiltered": true
   },
   "lint-staged": {
