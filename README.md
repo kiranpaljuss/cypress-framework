@@ -6,14 +6,16 @@
 ![Cucumber](https://img.shields.io/badge/Cucumber-BDD-23D96C?logo=cucumber&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeScript**. It covers both **UI** and **REST API** testing against two public demo applications:
+A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeScript**. It covers **UI**, **accessibility** and **REST API** testing against two public demo applications:
 
 | Application | Type | Coverage |
 | --- | --- | --- |
-| [SauceDemo](https://www.saucedemo.com) | Web UI | Login, cart, inventory sorting, checkout validation |
-| [Automation Exercise API](https://automationexercise.com/api_list) | REST API | Account create, update, read, login verification, delete |
+| [SauceDemo](https://www.saucedemo.com) | Web UI | Login, cart, inventory sorting, checkout validation, WCAG 2.2 AA accessibility |
+| [Automation Exercise API](https://automationexercise.com/api_list) | REST API | Account create, update, read, login verification, delete, response contracts |
 
 📊 **[Latest test report](https://kiranpaljuss.github.io/cypress-framework/)**: published from CI on every push to `main`.
+
+[![HTML test report showing 27 of 27 scenarios passing](docs/images/test-report.png)](https://kiranpaljuss.github.io/cypress-framework/)
 
 ---
 
@@ -23,6 +25,8 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 - **Page Object Model:** one class per page plus shared components, using stable `data-test` selectors.
 - **Fast, isolated UI tests:** login is cached with `cy.session()`, so scenarios that aren't testing login skip the UI login flow while each test still starts from a clean state.
 - **Scenario-safe API state:** responses and payloads are stored in Cypress aliases instead of module-level variables. A tagged `After` hook deletes every account the tests create, so the shared demo API is left clean even when a scenario fails.
+- **Accessibility testing:** a typed `cy.checkAccessibility()` command injects axe-core into the page and audits it against WCAG 2.2 AA. Serious and critical violations fail the scenario; each violation is logged with the offending elements.
+- **API contract validation:** response bodies are checked against strict [zod](https://zod.dev) schemas, which also generate the TypeScript types. An unexpected field, a wrong type or an invalid email fails the test with a readable, field-level error.
 - **Parallel execution:** a custom TypeScript runner distributes feature files across a configurable pool of Cypress workers and merges the results into a single report.
 - **Rich reporting:** an HTML Cucumber report with failure screenshots embedded against the failing step.
 - **Quality gates:** strict TypeScript, ESLint (typescript-eslint, Cypress and JSON rules), gherkin-lint, and a Husky pre-commit hook running lint-staged.
@@ -35,6 +39,8 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 | --- | --- |
 | Test runner | Cypress 16 |
 | BDD | `@badeball/cypress-cucumber-preprocessor`, esbuild |
+| Accessibility | axe-core |
+| API contracts | zod |
 | Language | TypeScript (strict) on Node.js 24 |
 | Reporting | `cucumber-html-reporter` |
 | Code quality | ESLint 10 (flat config), typescript-eslint, `@stylistic`, gherkin-lint, Husky, lint-staged |
@@ -48,6 +54,8 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 │   ├── workflows/ci.yml            # Lint → test → publish report
 │   └── dependabot.yml
 ├── cypress/
+│   ├── api/
+│   │   └── schemas.ts              # API response contracts (zod)
 │   ├── e2e/
 │   │   ├── features/               # Gherkin feature files (*.feature)
 │   │   └── step_definitions/       # Step definitions grouped by domain
@@ -55,8 +63,10 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 │   ├── pages/                      # Page objects
 │   │   └── components/             # Shared UI components (e.g. header)
 │   └── support/
+│       ├── accessibility.ts        # cy.checkAccessibility (axe-core)
 │       ├── commands.ts             # Typed custom commands (cy.loginAs, …)
 │       └── e2e.ts
+├── docs/images/                    # README assets
 ├── scripts/
 │   ├── exportHTMLReport.ts         # Builds the HTML report and embeds screenshots
 │   ├── loadEnv.ts                  # Env loading shared by Cypress and scripts
@@ -85,6 +95,7 @@ cp .env.template .env   # optional: override any defaults locally
 | `yarn test:parallel` | Run feature files in parallel (`FEATURE_PARALLEL_WORKERS`, default `3`) |
 | `yarn test:smoke` | Run only `@smoke` scenarios |
 | `yarn test:ui` / `yarn test:api` | Run only UI or API scenarios |
+| `yarn test:a11y` | Run only accessibility scenarios |
 
 You can run any [tag expression](https://cucumber.io/docs/cucumber/api/#tag-expressions) by setting `TAGS`:
 
@@ -97,7 +108,7 @@ TAGS="@checkout and not @ignore" yarn test
 | Tag | Meaning |
 | --- | --- |
 | `@ui` / `@api` | Test layer |
-| `@login`, `@cart`, `@checkout` | Functional area |
+| `@login`, `@cart`, `@checkout`, `@a11y` | Functional area |
 | `@smoke` | Critical-path subset for fast feedback |
 | `@ignore` | Excluded from every run |
 
