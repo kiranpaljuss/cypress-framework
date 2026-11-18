@@ -23,12 +23,13 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 
 ## Highlights
 
-- **Behaviour-driven specs:** Gherkin feature files written in business language, with Scenario Outlines and data tables for data-driven coverage.
+- **Behaviour-driven specs:** Gherkin feature files written in business language, with Scenario Outlines and data tables for data-driven coverage. BDD suits this app's short, clear user journeys: the scenarios read as plain-English acceptance criteria that testers, developers and product owners can all review. (My [Playwright framework](https://github.com/kiranpaljuss/playwright-framework) deliberately doesn't use BDD, because its tests are aimed at engineers.)
 - **Page Object Model:** one class per page plus shared components, using stable `data-test` selectors.
 - **Fast, isolated UI tests:** login is cached with `cy.session()`, so scenarios that aren't testing login skip the UI login flow while each test still starts from a clean state.
 - **Scenario-safe API state:** responses and payloads are stored in Cypress aliases instead of module-level variables. A tagged `After` hook deletes every account the tests create, so the shared demo API is left clean even when a scenario fails.
 - **Accessibility testing:** a typed `cy.checkAccessibility()` command injects axe-core into the page and audits it against WCAG 2.2 AA. Serious and critical violations fail the scenario; each violation is logged with the offending elements.
 - **API contract validation:** response bodies are checked against strict [zod](https://zod.dev) schemas, which also generate the TypeScript types. An unexpected field, a wrong type or an invalid email fails the test with a readable, field-level error.
+- **Resilient to third-party outages:** the public demo API sometimes returns an HTML page (an outage or bot protection) instead of JSON. Requests are [retried with a back-off](cypress/e2e/step_definitions/apiSteps.ts), and if the API is still unavailable the test fails with a clear message saying so, rather than a confusing parsing error that looks like a bug in the API under test.
 - **Parallel execution:** a custom TypeScript runner distributes feature files across a configurable pool of Cypress workers and merges the results into a single report.
 - **Rich reporting:** an HTML Cucumber report with failure screenshots embedded against the failing step.
 - **Quality gates:** strict TypeScript, ESLint (typescript-eslint, Cypress and JSON rules), gherkin-lint, and a Husky pre-commit hook running lint-staged.
