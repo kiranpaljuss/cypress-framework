@@ -85,7 +85,8 @@ The API tests uncovered four defects in Restful Booker, each covered by a `@know
 ├── scripts/
 │   ├── exportHTMLReport.ts         # Builds the HTML report and embeds screenshots
 │   ├── loadEnv.ts                  # Env loading shared by Cypress and scripts
-│   └── runFeaturesInParallel.ts    # Feature-level parallel runner
+│   ├── runFeaturesInParallel.ts    # Feature-level parallel runner
+│   └── writeJobSummary.ts          # Test results summary shown on each CI run page
 ├── cypress.config.ts
 ├── .env.template                   # Default (public) configuration values
 └── package.json
