@@ -69,6 +69,10 @@ jobs:
           command: yarn test
           wait-on: http://localhost:3001/ping
 
+      - name: Write test summary
+        if: ${{ !cancelled() }}
+        run: npx tsx scripts/writeJobSummary.ts "Cypress test results (chrome, full suite)"
+
       # Named per attempt so a re-run publishes its own report, not the first attempt's.
       - name: Upload HTML report
         if: ${{ !cancelled() }}
@@ -112,6 +116,10 @@ jobs:
         env:
           BROWSER: ${{ matrix.browser }}
           TAGS: '@ui and not @ignore'
+
+      - name: Write test summary
+        if: ${{ !cancelled() }}
+        run: npx tsx scripts/writeJobSummary.ts "Cypress test results (${{ matrix.browser }}, UI scenarios)"
 
       - name: Upload HTML report
         if: ${{ !cancelled() }}
