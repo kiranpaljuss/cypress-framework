@@ -82,8 +82,10 @@ if (all.length > 0) {
 }
 
 if (knownBugs.length > 0) {
+  const names = [...new Set(knownBugs.map(({ scenario }) => scenario.name))];
   lines.push(
-    `🐞 **Known bugs:** ${knownBugs.length} \`@known-bug\` scenarios document defects in the application under test and pass while each defect exists.`,
+    `🐞 **Known bugs:** ${names.length} \`@known-bug\` scenario${names.length === 1 ? '' : 's'} document${names.length === 1 ? 's' : ''} a confirmed defect in the application under test and pass while the defect exists:`,
+    ...names.map((name) => `- ${name}`),
     '',
   );
 }
