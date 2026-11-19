@@ -17,7 +17,7 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 
 > **See also:** [playwright-framework](https://github.com/kiranpaljuss/playwright-framework), my Playwright and TypeScript framework with combined UI + API tests across Chromium, Firefox and WebKit.
 
-[![HTML test report showing 27 of 27 scenarios passing](docs/images/test-report.png)](https://kiranpaljuss.github.io/cypress-framework/)
+[![HTML test report showing 34 of 34 scenarios passing](docs/images/test-report.png)](https://kiranpaljuss.github.io/cypress-framework/)
 
 ---
 
