@@ -4,6 +4,8 @@ import { addCucumberPreprocessorPlugin } from '@badeball/cypress-cucumber-prepro
 import { createEsbuildPlugin } from '@badeball/cypress-cucumber-preprocessor/esbuild';
 import { loadEnv } from './scripts/loadEnv';
 
+const env = loadEnv();
+
 export default defineConfig({
   viewportWidth: 1280,
   viewportHeight: 720,
@@ -15,9 +17,10 @@ export default defineConfig({
     runMode: 1,
     openMode: 0,
   },
-  env: loadEnv(),
+  env,
   expose: {
-    apiBaseUrl: 'https://automationexercise.com/api',
+    // Restful Booker: the public site by default, or a local Docker copy (CI sets API_BASE_URL).
+    apiBaseUrl: env.API_BASE_URL,
   },
   e2e: {
     baseUrl: 'https://www.saucedemo.com',
