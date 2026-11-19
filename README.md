@@ -11,7 +11,7 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 | Application | Type | Coverage |
 | --- | --- | --- |
 | [SauceDemo](https://www.saucedemo.com) | Web UI | Login, cart, inventory sorting, checkout validation, WCAG 2.2 AA accessibility |
-| [Automation Exercise API](https://automationexercise.com/api_list) | REST API | Account create, update, read, login verification, delete, response contracts |
+| [Restful Booker](https://restful-booker.herokuapp.com/apidoc/index.html) | REST API | Token auth, booking create, read, search, replace, partial update and delete, authorisation, response contracts, known bugs |
 
 📊 **[Latest test report](https://kiranpaljuss.github.io/cypress-framework/)**: published from CI on every push to `main`.
 
@@ -26,15 +26,27 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 - **Behaviour-driven specs:** Gherkin feature files written in business language, with Scenario Outlines and data tables for data-driven coverage. BDD suits this app's short, clear user journeys: the scenarios read as plain-English acceptance criteria that testers, developers and product owners can all review. (My [Playwright framework](https://github.com/kiranpaljuss/playwright-framework) deliberately doesn't use BDD, because its tests are aimed at engineers.)
 - **Page Object Model:** one class per page plus shared components, using stable `data-test` selectors.
 - **Fast, isolated UI tests:** login is cached with `cy.session()`, so scenarios that aren't testing login skip the UI login flow while each test still starts from a clean state.
-- **Scenario-safe API state:** responses and payloads are stored in Cypress aliases instead of module-level variables. A tagged `After` hook deletes every account the tests create, so the shared demo API is left clean even when a scenario fails.
+- **Scenario-safe API state:** responses, bookings and tokens are stored in Cypress aliases instead of shared variables. A tagged `After` hook deletes every booking the tests create, so the shared public API is left clean even when a scenario fails.
 - **Accessibility testing:** a typed `cy.checkAccessibility()` command injects axe-core into the page and audits it against WCAG 2.2 AA. Serious and critical violations fail the scenario; each violation is logged with the offending elements.
 - **API contract validation:** response bodies are checked against strict [zod](https://zod.dev) schemas, which also generate the TypeScript types. An unexpected field, a wrong type or an invalid email fails the test with a readable, field-level error.
-- **Resilient to third-party outages:** the public demo API sometimes returns an HTML page (an outage or bot protection) instead of JSON. Requests are [retried with a back-off](cypress/e2e/step_definitions/apiSteps.ts), and if the API is still unavailable the test fails with a clear message saying so, rather than a confusing parsing error that looks like a bug in the API under test.
+- **CI owns its API:** CI runs a private copy of the Restful Booker API in Docker (pinned by image digest), so the API scenarios never fail because a shared public server is down or blocking automated traffic. Local runs use the public site by default.
+- **Known bugs are scenarios too:** each API defect the tests found has a `@known-bug` scenario that asserts today's behaviour and names the correct one. When a bug is fixed, its scenario fails with a message saying so, as a prompt to update it.
 - **Parallel execution:** a custom TypeScript runner distributes feature files across a configurable pool of Cypress workers and merges the results into a single report.
 - **Rich reporting:** an HTML Cucumber report with failure screenshots embedded against the failing step.
 - **Quality gates:** strict TypeScript, ESLint (typescript-eslint, Cypress and JSON rules), gherkin-lint, and a Husky pre-commit hook running lint-staged.
 - **Migrated from JavaScript to strict TypeScript:** the framework was originally built in JavaScript, then [converted](https://github.com/kiranpaljuss/cypress-framework/commit/6772bc7) to strict mode with typed custom commands and API models.
 - **CI/CD:** GitHub Actions runs static checks, then the full suite in Chrome and the UI scenarios in Firefox and Edge. It uploads artifacts, publishes the report to GitHub Pages, and runs weekly to catch drift in the applications under test. Dependabot keeps dependencies current.
+
+## Bugs found
+
+The API tests uncovered four defects in Restful Booker, each covered by a `@known-bug` scenario in [`04_BookingAPI.feature`](cypress/e2e/features/04_BookingAPI.feature):
+
+| Request | Returns | Should return |
+| --- | --- | --- |
+| Log in with a wrong password | `200 OK` with `{"reason":"Bad credentials"}` | `401 Unauthorized` |
+| Create a booking with missing fields | `500 Internal Server Error` | `400 Bad Request` |
+| Delete a booking | `201 Created` | `200 OK` or `204 No Content` |
+| Delete a booking that no longer exists | `405 Method Not Allowed` | `404 Not Found` |
 
 ## Tech stack
 
@@ -47,7 +59,7 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 | Language | TypeScript (strict) on Node.js 24 |
 | Reporting | `cucumber-html-reporter` |
 | Code quality | ESLint 10 (flat config), typescript-eslint, `@stylistic`, gherkin-lint, Husky, lint-staged |
-| CI | GitHub Actions, GitHub Pages, Dependabot |
+| CI | GitHub Actions, Docker (API service container), GitHub Pages, Dependabot |
 
 ## Project structure
 
@@ -81,7 +93,7 @@ A BDD test automation framework built with **Cypress**, **Cucumber** and **TypeS
 
 ## Getting started
 
-**Prerequisites:** Node.js 24 (see `.nvmrc`), Yarn 1.x and Google Chrome.
+**Prerequisites:** Node.js 24 (see `.nvmrc`), Yarn 1.x and Google Chrome. Docker is optional, for running the API locally.
 
 ```bash
 nvm use
@@ -99,6 +111,7 @@ cp .env.template .env   # optional: override any defaults locally
 | `yarn test:smoke` | Run only `@smoke` scenarios |
 | `yarn test:ui` / `yarn test:api` | Run only UI or API scenarios |
 | `yarn test:a11y` | Run only accessibility scenarios |
+| `yarn booker:up` / `yarn booker:down` | Start or stop a local Restful Booker in Docker (then set `API_BASE_URL=http://localhost:3001`) |
 
 You can run any [tag expression](https://cucumber.io/docs/cucumber/api/#tag-expressions) by setting `TAGS`:
 
@@ -113,6 +126,7 @@ TAGS="@checkout and not @ignore" yarn test
 | `@ui` / `@api` | Test layer |
 | `@login`, `@cart`, `@checkout`, `@a11y` | Functional area |
 | `@smoke` | Critical-path subset for fast feedback |
+| `@known-bug` | Documents a defect in the application under test |
 | `@ignore` | Excluded from every run |
 
 ## Reports
@@ -132,7 +146,7 @@ Values are resolved in this order, highest priority first:
 2. `.env`: local overrides (git-ignored)
 3. `.env.template`: committed defaults
 
-The SauceDemo credentials in `.env.template` are the public demo credentials published on the SauceDemo login page.
+The SauceDemo and Restful Booker credentials in `.env.template` are the public demo credentials each site publishes. `API_BASE_URL` chooses which Restful Booker the API scenarios use: the public site by default, or a local Docker copy.
 
 ## Code quality
 

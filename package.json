@@ -19,6 +19,8 @@
     "test:ui": "TAGS=\"@ui and not @ignore\" yarn test",
     "test:api": "TAGS=\"@api and not @ignore\" yarn test",
     "test:a11y": "TAGS=\"@a11y and not @ignore\" yarn test",
+    "booker:up": "docker run -d --rm --name restful-booker -p 3001:3001 mwinteringham/restfulbooker@sha256:a87ae093264caf64cad2557256921cbdb1fec466d6356b5e140e3f060b904f04",
+    "booker:down": "docker stop restful-booker",
     "test:parallel": "yarn reports:clean && tsx scripts/runFeaturesInParallel.ts; code=$?; yarn report; exit $code",
     "reports:clean": "rm -rf report cypress/screenshots && mkdir -p report/HTML report/JSON",
     "report": "tsx scripts/exportHTMLReport.ts",

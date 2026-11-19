@@ -1,170 +1,222 @@
-import { After, Given, Then, When } from '@badeball/cypress-cucumber-preprocessor';
+import { After, DataTable, Given, Then, When } from '@badeball/cypress-cucumber-preprocessor';
 import { z } from 'zod';
-import { apiSchemas, type ApiResponseBody, type ApiSchemaName, type ApiUser } from '../../api/schemas';
+import { apiSchemas, type ApiSchemaName, type Booking } from '../../api/schemas';
 
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
-type AccountPayload = Record<string, string>;
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 interface ApiResponse {
   status: number;
-  body: ApiResponseBody;
+  body: unknown;
 }
 
-/** Accounts created during a scenario, keyed by email, so the After hook can delete them. */
-const createdAccounts = new Map<string, string>();
-
-const apiUrl = (endpoint: string) => `${Cypress.expose('apiBaseUrl')}${endpoint}`;
-
-/** How often to retry when the API returns a web page instead of JSON, and the base delay between tries. */
-const MAX_ATTEMPTS = 3;
-const RETRY_DELAY_MS = 2000;
-
-/**
- * automationexercise.com returns JSON with a `text/html` content type, so the body may arrive
- * as a string. Returns null when the body isn't JSON at all: the site sometimes answers
- * automated traffic (e.g. from CI servers) with an HTML error or bot-protection page.
- */
-const parseBody = (body: unknown): ApiResponseBody | null => {
-  if (typeof body !== 'string') {
-    return body as ApiResponseBody;
-  }
-  try {
-    return JSON.parse(body) as ApiResponseBody;
-  } catch {
-    return null;
-  }
-};
-
-const pageTitle = (html: unknown): string =>
-  String(html).match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() || 'untitled page';
-
-/**
- * Sends a request, retrying with a growing delay if the API returns a web page instead of
- * JSON. If it still does after MAX_ATTEMPTS, fails with a message that makes clear the
- * third-party API was unavailable, rather than a confusing JSON parse error.
- */
-function requestJson (options: Partial<Cypress.RequestOptions>, attempt = 1): Cypress.Chainable<ApiResponse> {
-  return cy.request(options).then((res) => {
-    const body = parseBody(res.body);
-    if (body) {
-      return cy.wrap<ApiResponse>({ status: res.status, body }, { log: false });
-    }
-
-    const summary = `${options.method} ${options.url} returned an HTML page ("${pageTitle(res.body)}", HTTP ${res.status}) instead of JSON`;
-    if (attempt >= MAX_ATTEMPTS) {
-      throw new Error(`Automation Exercise API unavailable: ${summary} on ${MAX_ATTEMPTS} attempts. `
-        + 'This is an outage or bot protection on the third-party API, not a failure of the behaviour under test.');
-    }
-
-    cy.log(`${summary}; retrying (attempt ${attempt + 1} of ${MAX_ATTEMPTS})`);
-    // A deliberate back-off before retrying a third-party API, not a wait for the app under test.
-    cy.wait(RETRY_DELAY_MS * attempt, { log: false });
-    return requestJson(options, attempt + 1);
-  });
+interface RequestOptions {
+  body?: object;
+  qs?: Record<string, string>;
+  token?: string;
 }
 
-const getAccountPayload = () => cy.get<AccountPayload>('@accountPayload');
+/** Bookings created during a scenario, so the After hook can delete any a scenario leaves behind. */
+const createdBookings = new Set<number>();
+
+const apiUrl = (path: string) => `${Cypress.expose('apiBaseUrl')}${path}`;
+
+const getBooking = () => cy.get<Booking>('@booking');
+const getBookingId = () => cy.get<number>('@bookingId');
+const getToken = () => cy.get<string>('@token');
 const getApiResponse = () => cy.get<ApiResponse>('@apiResponse');
 
-function trackAccountLifecycle (endpoint: string, payload: AccountPayload | undefined, body: ApiResponseBody) {
-  if (!payload?.email) {
-    return;
-  }
+/**
+ * Sends a request and stores the status and body under the `@apiResponse` alias.
+ * Error statuses don't fail the request: scenarios assert on them explicitly.
+ * Restful Booker reads the auth token from a `token` cookie.
+ */
+function sendRequest (method: HttpMethod, path: string, { body, qs, token }: RequestOptions = {}) {
+  return cy.request({
+    method,
+    url: apiUrl(path),
+    body,
+    qs,
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Cookie: `token=${token}` } : {}),
+    },
+    failOnStatusCode: false,
+  }).then(({ status, body: responseBody }) => {
+    cy.wrap<ApiResponse>({ status, body: responseBody }, { log: false }).as('apiResponse', { type: 'static' });
+  });
+}
 
-  if (endpoint === '/createAccount' && body.responseCode === 201) {
-    createdAccounts.set(payload.email, payload.password);
-  }
+function createBooking (booking: object) {
+  return sendRequest('POST', '/booking', { body: booking }).then(() => {
+    getApiResponse().then(({ status, body }) => {
+      if (status === 200) {
+        const { bookingid } = body as { bookingid: number };
+        createdBookings.add(bookingid);
+        cy.wrap(bookingid, { log: false }).as('bookingId', { type: 'static' });
+      }
+    });
+  });
+}
 
-  if (endpoint === '/deleteAccount' && body.responseCode === 200) {
-    createdAccounts.delete(payload.email);
-  }
+function requestToken (password?: string) {
+  return cy.env(['BOOKER_USERNAME', 'BOOKER_PASSWORD']).then((env) => {
+    expect(env.BOOKER_USERNAME, 'Cypress env value for BOOKER_USERNAME').to.be.a('string').and.not.be.empty;
+    expect(env.BOOKER_PASSWORD, 'Cypress env value for BOOKER_PASSWORD').to.be.a('string').and.not.be.empty;
+
+    return sendRequest('POST', '/auth', {
+      body: { username: env.BOOKER_USERNAME, password: password ?? env.BOOKER_PASSWORD },
+    });
+  });
 }
 
 /**
- * Sends a request and stores the parsed response under the `@apiResponse` alias.
- * GET payloads are sent as query parameters; all other methods send form-encoded bodies.
+ * Applies a two-column data table (field | value) to a booking. Values are converted to the
+ * type each field holds, and `checkin` / `checkout` are written into `bookingdates`.
+ * Returns the full updated booking and just the changed fields (for partial updates).
  */
-function sendApiRequest (method: HttpMethod, endpoint: string, payload?: AccountPayload) {
-  const isGet = method === 'GET';
+function applyChanges (booking: Booking, table: DataTable): { updated: Booking; changes: Partial<Booking> } {
+  const updated: Booking = { ...booking, bookingdates: { ...booking.bookingdates } };
+  const changes: Partial<Booking> = {};
 
-  return requestJson({
-    method,
-    url: apiUrl(endpoint),
-    form: !isGet,
-    body: isGet ? undefined : payload,
-    qs: isGet ? payload : undefined,
-    failOnStatusCode: false,
-  }).then((response) => {
-    trackAccountLifecycle(endpoint, payload, response.body);
-
-    cy.wrap<ApiResponse>(response).as('apiResponse', { type: 'static' });
+  Object.entries(table.rowsHash()).forEach(([field, value]) => {
+    switch (field) {
+      case 'firstname':
+      case 'lastname':
+      case 'additionalneeds':
+        updated[field] = value;
+        changes[field] = value;
+        break;
+      case 'totalprice':
+        updated.totalprice = Number(value);
+        changes.totalprice = Number(value);
+        break;
+      case 'depositpaid':
+        updated.depositpaid = value === 'true';
+        changes.depositpaid = value === 'true';
+        break;
+      case 'checkin':
+      case 'checkout':
+        updated.bookingdates[field] = value;
+        changes.bookingdates = updated.bookingdates;
+        break;
+      default:
+        throw new Error(`Unknown booking field in data table: "${field}"`);
+    }
   });
+
+  return { updated, changes };
 }
 
-Given('I prepare a unique account payload', () => {
+Given('I prepare a unique booking', () => {
   const uniqueId = `${Date.now()}${Cypress._.random(1000, 9999)}`;
 
-  cy.fixture<AccountPayload>('accountPayload').then((template) => {
-    cy.wrap<AccountPayload>({
-      ...template,
-      email: `cypress.user.${uniqueId}@example.com`,
-      mobile_number: `9${uniqueId.slice(-9)}`,
-    }).as('accountPayload', { type: 'static' });
+  cy.fixture<Booking>('bookingPayload').then((template) => {
+    cy.wrap<Booking>({ ...template, lastname: `${template.lastname}-${uniqueId}` }).as('booking', { type: 'static' });
   });
 });
 
-Given('I create the prepared account via API', () => {
-  getAccountPayload().then((payload) => sendApiRequest('POST', '/createAccount', payload));
-  getApiResponse().its('body.responseCode').should('eq', 201);
+Given('the prepared booking exists', () => {
+  getBooking().then(createBooking);
+  getApiResponse().its('status').should('eq', 200);
 });
 
-When(/^I send a "(GET|POST|PUT|DELETE)" request to "(.*)" with the prepared account payload$/, (method: HttpMethod, endpoint: string) => {
-  getAccountPayload().then((payload) => sendApiRequest(method, endpoint, payload));
-});
-
-When(/^I send a "(GET|POST|PUT|DELETE)" request to "(.*)"$/, (method: HttpMethod, endpoint: string) => {
-  sendApiRequest(method, endpoint);
-});
-
-When('I update the prepared account details', () => {
-  getAccountPayload().then((payload) => {
-    cy.wrap<AccountPayload>({
-      ...payload,
-      name: 'Updated Cypress User',
-      firstname: 'Updated',
-      city: 'Pune',
-    }).as('accountPayload', { type: 'static' });
+Given('I am authenticated as an admin', () => {
+  requestToken();
+  getApiResponse().then(({ status, body }) => {
+    expect(status, 'auth status').to.eq(200);
+    const { token } = apiSchemas.token.parse(body);
+    cy.wrap(token, { log: false }).as('token', { type: 'static' });
   });
 });
 
-When('I request the user details for the prepared account', () => {
-  getAccountPayload().then(({ email }) => sendApiRequest('GET', '/getUserDetailByEmail', { email }));
+When('I create the prepared booking', () => {
+  getBooking().then(createBooking);
 });
 
-When(/^I verify login for the prepared account with (the correct|an incorrect) password$/, (variant: string) => {
-  getAccountPayload().then(({ email, password }) => {
-    const attemptedPassword = variant === 'the correct' ? password : `${password}-wrong`;
-    sendApiRequest('POST', '/verifyLogin', { email, password: attemptedPassword });
+When('I create a booking with only a first name', () => {
+  getBooking().then(({ firstname }) => createBooking({ firstname }));
+});
+
+When('I request the booking', () => {
+  getBookingId().then((id) => sendRequest('GET', `/booking/${id}`));
+});
+
+When('I search for bookings by the guest name', () => {
+  getBooking().then(({ firstname, lastname }) => sendRequest('GET', '/booking', { qs: { firstname, lastname } }));
+});
+
+When('I authenticate with the admin credentials', () => {
+  requestToken();
+});
+
+When('I authenticate with an incorrect password', () => {
+  requestToken('not-the-password');
+});
+
+When('I replace the booking with these changes:', (table: DataTable) => {
+  getBooking().then((booking) => {
+    const { updated } = applyChanges(booking, table);
+    cy.wrap<Booking>(updated).as('booking', { type: 'static' });
+
+    getBookingId().then((id) => {
+      getToken().then((token) => sendRequest('PUT', `/booking/${id}`, { body: updated, token }));
+    });
   });
 });
 
-When('I delete the prepared account via API', () => {
-  getAccountPayload().then(({ email, password }) => sendApiRequest('DELETE', '/deleteAccount', { email, password }));
+When('I partially update the booking with these changes:', (table: DataTable) => {
+  getBooking().then((booking) => {
+    const { updated, changes } = applyChanges(booking, table);
+    cy.wrap<Booking>(updated).as('booking', { type: 'static' });
+
+    getBookingId().then((id) => {
+      getToken().then((token) => sendRequest('PATCH', `/booking/${id}`, { body: changes, token }));
+    });
+  });
 });
 
-Then(/^the response status should be "(\d+)"$/, (statusCode: string) => {
-  getApiResponse().its('status').should('eq', Number(statusCode));
+When('I delete the booking', () => {
+  getBookingId().then((id) => {
+    getToken().then((token) => sendRequest('DELETE', `/booking/${id}`, { token }));
+  });
 });
 
-Then(/^the API response code should be "(\d+)"$/, (apiCode: string) => {
-  getApiResponse().its('body.responseCode').should('eq', Number(apiCode));
+When(/^I send a "(PUT|PATCH|DELETE)" request for the booking with (no|an invalid) token$/, (method: HttpMethod, tokenVariant: string) => {
+  const token = tokenVariant === 'no' ? undefined : 'not-a-valid-token';
+
+  getBooking().then((booking) => {
+    // An attempted change that the scenario then checks was not applied.
+    const bodies: Partial<Record<HttpMethod, object>> = {
+      PUT: { ...booking, lastname: 'Unauthorised' },
+      PATCH: { lastname: 'Unauthorised' },
+    };
+
+    getBookingId().then((id) => sendRequest(method, `/booking/${id}`, { body: bodies[method], token }));
+  });
 });
 
-Then(/^the API response message should be "(.*)"$/, (message: string) => {
-  getApiResponse().its('body.message').should('eq', message);
+Then('the response status should be {int}', (expected: number) => {
+  getApiResponse().its('status').should('eq', expected);
 });
 
-Then(/^the response body should match the "(message|user details)" schema$/, (schemaName: ApiSchemaName) => {
+/**
+ * For known bugs: asserts the status the API returns today, and records the correct one.
+ * If the bug is fixed, the assertion fails with a message saying so.
+ */
+Then('the response status should be {int} instead of the correct {int}', (current: number, correct: number) => {
+  getApiResponse().its('status').then((status) => {
+    expect(status, `status (known bug: should be ${correct}; if it is now, the bug has been fixed and this scenario needs updating)`)
+      .to.eq(current);
+  });
+});
+
+Then('the response body should be {string}', (expected: string) => {
+  getApiResponse().its('body').should('eq', expected);
+});
+
+Then('the response body should match the {string} schema', (schemaName: ApiSchemaName) => {
+  expect(apiSchemas, 'known schema names').to.have.property(schemaName);
+
   getApiResponse().then(({ body }) => {
     const result = apiSchemas[schemaName].safeParse(body);
     const problems = result.success ? '' : `:\n${z.prettifyError(result.error)}`;
@@ -173,31 +225,68 @@ Then(/^the response body should match the "(message|user details)" schema$/, (sc
   });
 });
 
-Then('the returned user details should match the prepared account', () => {
-  getAccountPayload().then((payload) => {
-    getApiResponse().its('body.user').should((user: ApiUser) => {
-      expect(user, 'user details').to.include({
-        name: payload.name,
-        email: payload.email,
-        first_name: payload.firstname,
-        last_name: payload.lastname,
-        city: payload.city,
-      });
+Then('the response should contain the prepared booking', () => {
+  getBooking().then((booking) => {
+    getApiResponse().its('body').then((body) => {
+      // `POST /booking` wraps the booking with its id; other endpoints return the booking itself.
+      const returned = (body as { booking?: Booking }).booking ?? body;
+      expect(returned, 'returned booking').to.deep.equal(booking);
     });
   });
 });
 
-/** Removes any accounts left behind (e.g. by a failed scenario) so the shared demo API is not polluted. */
-After({ tags: '@api' }, () => {
-  createdAccounts.forEach((password, email) => {
-    cy.request({
-      method: 'DELETE',
-      url: apiUrl('/deleteAccount'),
-      form: true,
-      body: { email, password },
-      failOnStatusCode: false,
-      log: false,
+Then('the stored booking should match the prepared booking', () => {
+  getBooking().then((booking) => {
+    getBookingId().then((id) => {
+      cy.request({ url: apiUrl(`/booking/${id}`), headers: { Accept: 'application/json' } })
+        .its('body')
+        .should('deep.equal', booking);
     });
   });
-  createdAccounts.clear();
+});
+
+Then('the results should contain only the booking', () => {
+  getBookingId().then((id) => {
+    getApiResponse().its('body').should('deep.equal', [{ bookingid: id }]);
+  });
+});
+
+Then('the booking should no longer exist', () => {
+  getBookingId().then((id) => {
+    cy.request({ url: apiUrl(`/booking/${id}`), headers: { Accept: 'application/json' }, failOnStatusCode: false })
+      .its('status')
+      .should('eq', 404);
+  });
+});
+
+/**
+ * Deletes every booking a scenario created, including after a failure, so the shared
+ * public API isn't left with test data. Bookings that are already gone are ignored.
+ */
+After({ tags: '@api' }, () => {
+  if (createdBookings.size === 0) {
+    return;
+  }
+
+  cy.env(['BOOKER_USERNAME', 'BOOKER_PASSWORD']).then((env) => {
+    cy.request({
+      method: 'POST',
+      url: apiUrl('/auth'),
+      body: { username: env.BOOKER_USERNAME, password: env.BOOKER_PASSWORD },
+      log: false,
+    }).then(({ body }) => {
+      const { token } = body as { token: string };
+
+      createdBookings.forEach((id) => {
+        cy.request({
+          method: 'DELETE',
+          url: apiUrl(`/booking/${id}`),
+          headers: { Cookie: `token=${token}` },
+          failOnStatusCode: false,
+          log: false,
+        });
+      });
+      createdBookings.clear();
+    });
+  });
 });

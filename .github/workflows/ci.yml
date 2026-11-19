@@ -6,7 +6,7 @@ on:
   pull_request:
   workflow_dispatch:
   schedule:
-    # Weekly run to catch drift in the third-party demo applications under test.
+    # Weekly run to catch changes to SauceDemo, which is tested live.
     - cron: '0 6 * * 1'
 
 concurrency:
@@ -44,6 +44,15 @@ jobs:
     needs: static-checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # A private copy of the Restful Booker API, so the API scenarios don't depend on a
+    # shared public server being up. Pinned by digest: the image only publishes `latest`.
+    services:
+      restful-booker:
+        image: mwinteringham/restfulbooker@sha256:a87ae093264caf64cad2557256921cbdb1fec466d6356b5e140e3f060b904f04
+        ports:
+          - 3001:3001
+    env:
+      API_BASE_URL: http://localhost:3001
     steps:
       - uses: actions/checkout@v7
 
@@ -58,6 +67,7 @@ jobs:
         uses: cypress-io/github-action@v7
         with:
           command: yarn test
+          wait-on: http://localhost:3001/ping
 
       # Named per attempt so a re-run publishes its own report, not the first attempt's.
       - name: Upload HTML report
